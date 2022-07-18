@@ -1,5 +1,6 @@
 var express = require("express");
 var router = express.Router();
+const { uuid } = require('uuidv4');
 
 const { blogsDB } = require("../mongo");
 
@@ -103,43 +104,6 @@ const makePost = async (newPost) => {
   }
 };
 
-const updatePost = async (blogId, title, text, author) => {
-  try {
-    const collection = await blogsDB().collection("posts");
-    const updatedPost = {
-      title: title,
-      text: text,
-      author: author,
-      lastModified: new Date(),
-    };
-    await collection.updateOne(
-      {
-        id: blogId,
-      },
-      {
-        $set: {
-          ...updatedPost,
-        },
-      }
-    );
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const deletePosts = async (blogIds) => {
-  try {
-    const collection = await blogsDB().collection("posts");
-    await collection.deleteMany({
-      id: {
-        $in: blogIds,
-      },
-    });
-  } catch (e) {
-    console.error(e);
-  }
-};
-
 router.get("/all-blogs", async function (req, res, next) {
   const limit = Number(req.query.limit);
   const skip = Number(req.query.limit) * (Number(req.query.page) - 1)
@@ -180,40 +144,16 @@ router.post("/blog-submit", async function (req, res, next) {
       text,
       author,
       createdAt: new Date(),
-      id: Number(collectionLength + 1),
+      id: uuid(),
       lastModified: new Date(),
     };
 
     await makePost(newPost)
-    res.status(200).json({ message: "New blog submitted", success: true });
+    res.status(200).json({ message: "New blog submitted", success: true, payload: newPost });
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: e, success: false });
   }
-});
-
-router.put("/edit-blog", async function (req, res, next) {
-  const blogId = Number(req.body.blogId);
-  const title = req.body.title;
-  const text = req.body.text;
-  const author = req.body.author;
-
-  await updatePost(blogId, title, text, author);
-
-  res.send("OK");
-});
-
-router.delete("/delete-blog/:blogId", async (req, res) => {
-  const blogId = Number(req.body.blogId);
-  await deletePosts([blogId]);
-  res.send("deleted blog");
-});
-
-router.get("/admin-blog-list", async (req, res) => {
-  const collection = await blogsDB().collection("posts");
-  const dbResult = await collection.find({}).project({ text: 0 }).toArray();
-
-  res.json(dbResult);
 });
 
 module.exports = router;
